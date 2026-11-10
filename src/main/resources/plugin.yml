@@ -24,7 +24,7 @@ permissions:
     description: Allows sorting other players' inventories
     default: op
   chestsorter.sneak.sort:
-    description: Allows sneak+left-click sorting
+    description: Allows sneak+left-click (empty hand) sorting of chests and other storage
     default: true
   chestsorter.middleclick.sort:
     description: Allows middle-click sorting in open containers

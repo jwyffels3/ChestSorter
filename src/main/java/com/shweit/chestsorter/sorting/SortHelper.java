@@ -2,16 +2,21 @@ package com.shweit.chestsorter.sorting;
 
 import com.shweit.chestsorter.ChestSorter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.EnumSet;
 import java.util.Objects;
+import java.util.Set;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.inventory.AbstractHorseInventory;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 
@@ -20,8 +25,44 @@ import org.bukkit.inventory.InventoryHolder;
  */
 public class SortHelper {
 
+  /** Inventory types that are plain storage, where slot position has no meaning. */
+  private static final Set<InventoryType> STORAGE_TYPES = EnumSet.of(InventoryType.CHEST,
+      InventoryType.BARREL, InventoryType.SHULKER_BOX, InventoryType.ENDER_CHEST);
+
+  private static final String NOT_STORAGE_MESSAGE =
+      "Only chests, barrels, shulker boxes and ender chests can be sorted.";
+
   private final ChestSorter plugin;
   private final InventorySorter sorter;
+
+  /**
+   * Whether an inventory is plain storage that is safe to sort. Furnaces, brewing stands,
+   * crafters, dispensers etc. have slots with fixed roles, and donkey/llama inventories report
+   * CHEST but keep the saddle and armor in their first slots.
+   *
+   * @param inventory The inventory to check
+   * @return true if the inventory may be sorted
+   */
+  public static boolean isSortableStorage(Inventory inventory) {
+    return STORAGE_TYPES.contains(inventory.getType())
+        && !(inventory instanceof AbstractHorseInventory);
+  }
+
+  /**
+   * Gets the inventory a block holds for a player. An ender chest block holds no items itself:
+   * every player has their own ender chest contents, so that player's are returned.
+   *
+   * @param player The player sorting
+   * @param block The block
+   * @return The block's inventory, or null if the block holds no items
+   */
+  public static Inventory getBlockInventory(Player player, Block block) {
+    if (block.getType() == Material.ENDER_CHEST) {
+      return player.getEnderChest();
+    }
+    BlockState state = block.getState();
+    return state instanceof InventoryHolder holder ? holder.getInventory() : null;
+  }
 
   /**
    * Constructor for SortHelper.
@@ -48,14 +89,23 @@ public class SortHelper {
       SortOrder sortOrder) {
     // Get the block
     Block block = location.getBlock();
-    BlockState state = block.getState();
 
     // Check if it's a container
-    if (!(state instanceof InventoryHolder holder)) {
+    Inventory inventory = getBlockInventory(player, block);
+    if (inventory == null) {
       String message = Objects.requireNonNullElse(
           plugin.getConfig().getString("messages.invalid-location",
               "The target block is not a container."),
           "The target block is not a container.");
+      player.sendActionBar(Component.text(message, NamedTextColor.RED));
+      return false;
+    }
+
+    // Only plain storage; furnaces, brewing stands etc. have slots with fixed roles
+    if (!isSortableStorage(inventory)) {
+      String message = Objects.requireNonNullElse(
+          plugin.getConfig().getString("messages.not-storage", NOT_STORAGE_MESSAGE),
+          NOT_STORAGE_MESSAGE);
       player.sendActionBar(Component.text(message, NamedTextColor.RED));
       return false;
     }
@@ -113,7 +163,7 @@ public class SortHelper {
     }
 
     // Sort the container
-    sorter.sortInventory(holder.getInventory(), sortType, sortOrder);
+    sorter.sortInventory(inventory, sortType, sortOrder);
     String message = Objects.requireNonNullElse(
         plugin.getConfig().getString("messages.sort-success",
             "Container sorted successfully!"),
