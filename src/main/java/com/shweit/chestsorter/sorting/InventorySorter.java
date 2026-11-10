@@ -19,6 +19,8 @@ public class InventorySorter {
   private static final int PLAYER_STORAGE_FIRST = 9;
   /** End (exclusive) of a player inventory's main storage (36-39 armor, 40 offhand). */
   private static final int PLAYER_STORAGE_END = 36;
+  /** Player inventory slots whose partial stacks get refilled: hotbar (0-8) and offhand (40). */
+  private static final int[] HAND_SLOTS = {0, 1, 2, 3, 4, 5, 6, 7, 8, 40};
 
   /**
    * Sorts an inventory based on the specified sort type and order.
@@ -48,6 +50,11 @@ public class InventorySorter {
       }
     }
 
+    // Refill partial hotbar and offhand stacks first; those slots themselves never move
+    if (inventory instanceof PlayerInventory) {
+      topUpHandSlots(inventory, contents, items);
+    }
+
     // Combine partial stacks of identical items, so sorting also tidies up
     items = mergeStacks(items, inventory.getMaxStackSize());
 
@@ -65,6 +72,41 @@ public class InventorySorter {
     for (int i = from; i < to; i++) {
       inventory.setItem(i, i - from < items.size() ? items.get(i - from) : null);
     }
+  }
+
+  /**
+   * Fills partial hotbar and offhand stacks with identical items (see {@link ItemStack#isSimilar})
+   * taken from the main inventory, e.g. 32 stone bricks on the hotbar and 64 in the inventory
+   * become 64 and 32. These slots keep their position; only their amounts grow. Stacks emptied
+   * this way are removed from {@code items}, so the total amount of every item is unchanged.
+   *
+   * @param inventory The player inventory
+   * @param contents The inventory contents as read before sorting
+   * @param items The main-inventory stacks (copies), reduced by what moves to the hands
+   */
+  private void topUpHandSlots(Inventory inventory, ItemStack[] contents, List<ItemStack> items) {
+    for (int slot : HAND_SLOTS) {
+      ItemStack held = contents[slot];
+      if (held == null || held.getType() == Material.AIR) {
+        continue;
+      }
+      int limit = Math.min(held.getMaxStackSize(), inventory.getMaxStackSize());
+      ItemStack filled = held.clone();
+      for (ItemStack item : items) {
+        if (filled.getAmount() >= limit) {
+          break;
+        }
+        if (item.getAmount() > 0 && item.isSimilar(filled)) {
+          int moved = Math.min(limit - filled.getAmount(), item.getAmount());
+          filled.setAmount(filled.getAmount() + moved);
+          item.setAmount(item.getAmount() - moved);
+        }
+      }
+      if (filled.getAmount() != held.getAmount()) {
+        inventory.setItem(slot, filled);
+      }
+    }
+    items.removeIf(item -> item.getAmount() <= 0);
   }
 
   /**
