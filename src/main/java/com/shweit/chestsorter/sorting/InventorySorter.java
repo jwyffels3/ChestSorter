@@ -7,12 +7,18 @@ import java.util.Objects;
 import org.bukkit.Material;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.Damageable;
 
 /**
  * Handles sorting of inventories based on different criteria.
  */
 public class InventorySorter {
+
+  /** First main-storage slot of a player inventory (slots 0-8 are the hotbar). */
+  private static final int PLAYER_STORAGE_FIRST = 9;
+  /** End (exclusive) of a player inventory's main storage (36-39 armor, 40 offhand). */
+  private static final int PLAYER_STORAGE_END = 36;
 
   /**
    * Sorts an inventory based on the specified sort type and order.
@@ -22,11 +28,21 @@ public class InventorySorter {
    * @param sortOrder The order to sort in (ASC/DESC)
    */
   public void sortInventory(Inventory inventory, SortType sortType, SortOrder sortOrder) {
+    // A player inventory also holds the hotbar (0-8), armor (36-39) and offhand (40).
+    // Only the 27 main storage slots are sorted, so gear never moves in or out of those.
+    int from = 0;
+    int to = inventory.getSize();
+    if (inventory instanceof PlayerInventory) {
+      from = PLAYER_STORAGE_FIRST;
+      to = PLAYER_STORAGE_END;
+    }
+
     List<ItemStack> items = new ArrayList<>();
 
-    // Collect all non-null items
+    // Collect all non-null items in the sorted range
     ItemStack[] contents = Objects.requireNonNull(inventory.getContents(), "Inventory contents");
-    for (ItemStack item : contents) {
+    for (int i = from; i < to; i++) {
+      ItemStack item = contents[i];
       if (item != null && item.getType() != Material.AIR) {
         items.add(item.clone());
       }
@@ -42,10 +58,9 @@ public class InventorySorter {
 
     items.sort(comparator);
 
-    // Clear inventory and repopulate
-    inventory.clear();
-    for (int i = 0; i < items.size() && i < inventory.getSize(); i++) {
-      inventory.setItem(i, items.get(i));
+    // Clear the sorted range and repopulate it; slots outside the range are untouched
+    for (int i = from; i < to; i++) {
+      inventory.setItem(i, i - from < items.size() ? items.get(i - from) : null);
     }
   }
 
