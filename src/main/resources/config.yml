@@ -24,6 +24,12 @@ sneak-sort:
 middle-click:
   enabled: true
 
+# Sneak+Left-Click-Air sorting
+# When sneaking and punching the air with an empty hand, your own inventory is sorted
+# (only the 27 main slots: hotbar, armor and offhand are never moved)
+air-sort:
+  enabled: true
+
 # Blacklist - Containers at these locations or of these types will not be sorted
 blacklist:
   # Format: "world:x:y:z"

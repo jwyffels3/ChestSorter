@@ -26,6 +26,9 @@ permissions:
   chestsorter.sneak.sort:
     description: Allows sneak+left-click (empty hand) sorting of chests and other storage
     default: true
+  chestsorter.air.sort:
+    description: Allows sneak+left-click-air (empty hand) sorting of your own inventory
+    default: true
   chestsorter.middleclick.sort:
     description: Allows middle-click sorting in open containers
     default: true
@@ -38,3 +41,4 @@ permissions:
       chestsorter.sort.player.others: true
       chestsorter.sneak.sort: true
       chestsorter.middleclick.sort: true
+      chestsorter.air.sort: true
