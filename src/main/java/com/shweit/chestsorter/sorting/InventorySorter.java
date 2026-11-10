@@ -48,6 +48,9 @@ public class InventorySorter {
       }
     }
 
+    // Combine partial stacks of identical items, so sorting also tidies up
+    items = mergeStacks(items, inventory.getMaxStackSize());
+
     // Sort based on type
     Comparator<ItemStack> comparator = getComparator(sortType);
 
@@ -62,6 +65,41 @@ public class InventorySorter {
     for (int i = from; i < to; i++) {
       inventory.setItem(i, i - from < items.size() ? items.get(i - from) : null);
     }
+  }
+
+  /**
+   * Combines partial stacks of identical items (same type, name, enchantments, damage and other
+   * components, see {@link ItemStack#isSimilar}) up to the stack limit. The total amount of every
+   * item is unchanged, and the result never needs more slots than the input.
+   *
+   * @param items The stacks to merge (not modified)
+   * @param inventoryLimit The inventory's maximum stack size
+   * @return The merged stacks, in first-seen order
+   */
+  private List<ItemStack> mergeStacks(List<ItemStack> items, int inventoryLimit) {
+    List<ItemStack> merged = new ArrayList<>();
+    for (ItemStack item : items) {
+      int remaining = item.getAmount();
+      for (ItemStack stack : merged) {
+        if (remaining == 0) {
+          break;
+        }
+        if (stack.isSimilar(item)) {
+          int limit = Math.min(stack.getMaxStackSize(), inventoryLimit);
+          int moved = Math.min(limit - stack.getAmount(), remaining);
+          if (moved > 0) {
+            stack.setAmount(stack.getAmount() + moved);
+            remaining -= moved;
+          }
+        }
+      }
+      if (remaining > 0) {
+        ItemStack rest = item.clone();
+        rest.setAmount(remaining);
+        merged.add(rest);
+      }
+    }
+    return merged;
   }
 
   /**
