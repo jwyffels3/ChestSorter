@@ -1,6 +1,7 @@
 package com.shweit.chestsorter;
 
 import com.shweit.chestsorter.commands.SortCommands;
+import com.shweit.chestsorter.listeners.AirSortListener;
 import com.shweit.chestsorter.listeners.MiddleClickSortListener;
 import com.shweit.chestsorter.listeners.PlayerJoinListener;
 import com.shweit.chestsorter.listeners.SneakSortListener;
@@ -86,6 +87,7 @@ public class ChestSorter extends JavaPlugin {
   private void registerListeners() {
     getServer().getPluginManager().registerEvents(new SneakSortListener(this), this);
     getServer().getPluginManager().registerEvents(new MiddleClickSortListener(this), this);
+    getServer().getPluginManager().registerEvents(new AirSortListener(this), this);
     getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
   }
 }

@@ -7,12 +7,20 @@ import java.util.Objects;
 import org.bukkit.Material;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.Damageable;
 
 /**
  * Handles sorting of inventories based on different criteria.
  */
 public class InventorySorter {
+
+  /** First main-storage slot of a player inventory (slots 0-8 are the hotbar). */
+  private static final int PLAYER_STORAGE_FIRST = 9;
+  /** End (exclusive) of a player inventory's main storage (36-39 armor, 40 offhand). */
+  private static final int PLAYER_STORAGE_END = 36;
+  /** Player inventory slots whose partial stacks get refilled: hotbar (0-8) and offhand (40). */
+  private static final int[] HAND_SLOTS = {0, 1, 2, 3, 4, 5, 6, 7, 8, 40};
 
   /**
    * Sorts an inventory based on the specified sort type and order.
@@ -22,15 +30,33 @@ public class InventorySorter {
    * @param sortOrder The order to sort in (ASC/DESC)
    */
   public void sortInventory(Inventory inventory, SortType sortType, SortOrder sortOrder) {
+    // A player inventory also holds the hotbar (0-8), armor (36-39) and offhand (40).
+    // Only the 27 main storage slots are sorted, so gear never moves in or out of those.
+    int from = 0;
+    int to = inventory.getSize();
+    if (inventory instanceof PlayerInventory) {
+      from = PLAYER_STORAGE_FIRST;
+      to = PLAYER_STORAGE_END;
+    }
+
     List<ItemStack> items = new ArrayList<>();
 
-    // Collect all non-null items
+    // Collect all non-null items in the sorted range
     ItemStack[] contents = Objects.requireNonNull(inventory.getContents(), "Inventory contents");
-    for (ItemStack item : contents) {
+    for (int i = from; i < to; i++) {
+      ItemStack item = contents[i];
       if (item != null && item.getType() != Material.AIR) {
         items.add(item.clone());
       }
     }
+
+    // Refill partial hotbar and offhand stacks first; those slots themselves never move
+    if (inventory instanceof PlayerInventory) {
+      topUpHandSlots(inventory, contents, items);
+    }
+
+    // Combine partial stacks of identical items, so sorting also tidies up
+    items = mergeStacks(items, inventory.getMaxStackSize());
 
     // Sort based on type
     Comparator<ItemStack> comparator = getComparator(sortType);
@@ -42,11 +68,80 @@ public class InventorySorter {
 
     items.sort(comparator);
 
-    // Clear inventory and repopulate
-    inventory.clear();
-    for (int i = 0; i < items.size() && i < inventory.getSize(); i++) {
-      inventory.setItem(i, items.get(i));
+    // Clear the sorted range and repopulate it; slots outside the range are untouched
+    for (int i = from; i < to; i++) {
+      inventory.setItem(i, i - from < items.size() ? items.get(i - from) : null);
     }
+  }
+
+  /**
+   * Fills partial hotbar and offhand stacks with identical items (see {@link ItemStack#isSimilar})
+   * taken from the main inventory, e.g. 32 stone bricks on the hotbar and 64 in the inventory
+   * become 64 and 32. These slots keep their position; only their amounts grow. Stacks emptied
+   * this way are removed from {@code items}, so the total amount of every item is unchanged.
+   *
+   * @param inventory The player inventory
+   * @param contents The inventory contents as read before sorting
+   * @param items The main-inventory stacks (copies), reduced by what moves to the hands
+   */
+  private void topUpHandSlots(Inventory inventory, ItemStack[] contents, List<ItemStack> items) {
+    for (int slot : HAND_SLOTS) {
+      ItemStack held = contents[slot];
+      if (held == null || held.getType() == Material.AIR) {
+        continue;
+      }
+      int limit = Math.min(held.getMaxStackSize(), inventory.getMaxStackSize());
+      ItemStack filled = held.clone();
+      for (ItemStack item : items) {
+        if (filled.getAmount() >= limit) {
+          break;
+        }
+        if (item.getAmount() > 0 && item.isSimilar(filled)) {
+          int moved = Math.min(limit - filled.getAmount(), item.getAmount());
+          filled.setAmount(filled.getAmount() + moved);
+          item.setAmount(item.getAmount() - moved);
+        }
+      }
+      if (filled.getAmount() != held.getAmount()) {
+        inventory.setItem(slot, filled);
+      }
+    }
+    items.removeIf(item -> item.getAmount() <= 0);
+  }
+
+  /**
+   * Combines partial stacks of identical items (same type, name, enchantments, damage and other
+   * components, see {@link ItemStack#isSimilar}) up to the stack limit. The total amount of every
+   * item is unchanged, and the result never needs more slots than the input.
+   *
+   * @param items The stacks to merge (not modified)
+   * @param inventoryLimit The inventory's maximum stack size
+   * @return The merged stacks, in first-seen order
+   */
+  private List<ItemStack> mergeStacks(List<ItemStack> items, int inventoryLimit) {
+    List<ItemStack> merged = new ArrayList<>();
+    for (ItemStack item : items) {
+      int remaining = item.getAmount();
+      for (ItemStack stack : merged) {
+        if (remaining == 0) {
+          break;
+        }
+        if (stack.isSimilar(item)) {
+          int limit = Math.min(stack.getMaxStackSize(), inventoryLimit);
+          int moved = Math.min(limit - stack.getAmount(), remaining);
+          if (moved > 0) {
+            stack.setAmount(stack.getAmount() + moved);
+            remaining -= moved;
+          }
+        }
+      }
+      if (remaining > 0) {
+        ItemStack rest = item.clone();
+        rest.setAmount(remaining);
+        merged.add(rest);
+      }
+    }
+    return merged;
   }
 
   /**

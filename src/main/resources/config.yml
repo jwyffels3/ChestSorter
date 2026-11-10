@@ -14,13 +14,20 @@ sound:
   pitch: 1.0
 
 # Sneak+Left-Click sorting
-# When sneaking and left-clicking (punching) a container, it will be sorted
+# When sneaking and punching a chest, barrel, shulker box or ender chest with an empty hand,
+# it will be sorted (an ender chest sorts your own ender chest contents)
 sneak-sort:
   enabled: true
 
 # Middle-Click sorting
 # When a container is open and you middle-click (mouse wheel), it will be sorted
 middle-click:
+  enabled: true
+
+# Sneak+Left-Click-Air sorting
+# When sneaking and punching the air with an empty hand, your own inventory is sorted
+# (only the 27 main slots: hotbar, armor and offhand are never moved)
+air-sort:
   enabled: true
 
 # Blacklist - Containers at these locations or of these types will not be sorted
@@ -49,6 +56,7 @@ messages:
   invalid-sort-order: "Invalid sort order. Use ASC or DESC"
   player-not-found: "Player not found."
   blacklisted: "This container is blacklisted from sorting."
+  not-storage: "Only chests, barrels, shulker boxes and ender chests can be sorted."
   welcome: "&7&m                    &r\n&6&l✦ Welcome to the Server! &r\n&7This server uses &eChestSorter &7for inventory sorting.\n&7• Middle-click in open containers to sort\n&7• Sneak + left-click containers to sort from outside\n&7• Use &e/sortprefs &7to customize your settings\n&7• If you have a chest sorter mod, you can disable the plugin with &e/sortprefs toggle\n&7&m                    &r"
   prefs-disabled: "&cChestSorter disabled! Use &e/sortprefs toggle &cto re-enable."
   prefs-enabled: "&aChestSorter enabled!"

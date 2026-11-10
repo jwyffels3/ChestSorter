@@ -2,6 +2,7 @@ package com.shweit.chestsorter.listeners;
 
 import com.shweit.chestsorter.ChestSorter;
 import com.shweit.chestsorter.PlayerData;
+import com.shweit.chestsorter.sorting.SortHelper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Objects;
 import net.kyori.adventure.text.Component;
@@ -73,9 +74,10 @@ public class MiddleClickSortListener implements Listener {
       return;
     }
 
-    // Check if it's a container (not player inventory)
+    // Only plain storage (chest, barrel, shulker box, ender chest). This also excludes the
+    // player's own inventory, furnaces, brewing stands and other slots with fixed roles.
     InventoryHolder holder = clickedInventory.getHolder();
-    if (holder == null || holder instanceof Player) {
+    if (holder == null || !SortHelper.isSortableStorage(clickedInventory)) {
       return;
     }
 
